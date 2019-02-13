@@ -12,7 +12,7 @@ SECTION "rom header", ROM0[$0104]
 main:
     di ; disable interrupts
     ld SP, $FFFF
-    ld a, %11100100
+    ld a, %11100100 ; set BG palette
     ld [rBGP], a
 .loop_until_line_144
     ld a, [rLY]
@@ -29,7 +29,7 @@ main:
     dec a
     dec a
     ld [rSCY], a
-    ld a, [rBGP]
-    rrc a
+    ld a, [rBGP] ; get BG palette
+    rrc a ; rotate right the bits
     ld [rBGP], a
     jr .loop_until_line_144
