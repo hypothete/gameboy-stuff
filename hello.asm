@@ -12,16 +12,24 @@ SECTION "rom header", ROM0[$0104]
 main:
     di ; disable interrupts
     ld SP, $FFFF
+    ld a, %11100100
+    ld [rBGP], a
 .loop_until_line_144
     ld a, [rLY]
-    ld [rSCX], a
     cp 144
-    jp nz, .loop_until_line_144
+    jr nz, .loop_until_line_144
 .loop_until_line_145
     ld a, [rLY]
     cp 145
-    jp nz, .loop_until_line_145
+    jr nz, .loop_until_line_145
+    ld a, [rSCX]
+    inc a
+    ld [rSCX], a
     ld a, [rSCY]
     dec a
+    dec a
     ld [rSCY], a
-    jp .loop_until_line_144
+    ld a, [rBGP]
+    rrc a
+    ld [rBGP], a
+    jr .loop_until_line_144
