@@ -34,6 +34,18 @@ main:
     halt ; wait a bit
     nop
 
+load_sprite:
+    ld hl, $8800
+    ld bc, SPRITE0
+    ld d, 16
+.lspr_loop
+    ld a, [bc]
+    ld [hli], a
+    inc bc
+    dec d
+    jr nz, .lspr_loop
+
+
     ld a, [rLCDC] ; set LCD flags
     or LCDCF_OBJON
     or LCDCF_OBJ8
@@ -69,7 +81,7 @@ clear_oam_buffer:
     ; x-coord
     ld [hl+], a
     ; tile index
-    ld a, $19
+    ld a, $80
     ld [hl+], a
     ; attributes, including palette, which are all zero
     ld a, %00000000
@@ -86,6 +98,17 @@ clear_oam_buffer:
 
     call $ff80
     jp .loop
+
+SECTION "Sprites", ROM0
+SPRITE0:
+    dw `00000000
+    dw `03022030
+    dw `00300300
+    dw `02033020
+    dw `02033020
+    dw `00300300
+    dw `03022030
+    dw `00000000
 
 SECTION "OAM buffer", WRAM0[$C100]
 oam_buffer: ds 4 * 40
