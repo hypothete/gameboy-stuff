@@ -102,19 +102,19 @@ clear_oam_buffer:
     inc hl
     ld c, [hl] ; x
     ld a, [buttons]
-    bit 1, a
+    bit PADB_LEFT, a
     jr z, .skip_left
     dec c
 .skip_left
-    bit 0, a
+    bit PADB_RIGHT, a
     jr z, .skip_right
     inc c
 .skip_right
-    bit 2, a
+    bit PADB_UP, a
     jr z, .skip_up
     dec b
 .skip_up
-    bit 3, a
+    bit PADB_DOWN, a
     jr z, .skip_down
     inc b
 .skip_down
@@ -122,18 +122,19 @@ clear_oam_buffer:
     dec hl
     ld [hl], b
 
-    call $ff80
+    call $ff80 ; DMA transfer
     jp .loop
 
 read_buttons:
-    ld a, $20
+    ld a, JOYPAD_BUTTONS
     ld [rJOYPAD], a ; tell it we want to read
     ld a, [rJOYPAD] ; stall
     ld a, [rJOYPAD]
     cpl
     and $0F
+    swap a
     ld b, a ; b = start.select.b.a.x.x.x.x
-    ld a, $10
+    ld a, JOYPAD_ARROWS
     ld [rJOYPAD], a
     ld a, [rJOYPAD] ; stall
     ld a, [rJOYPAD]
@@ -143,7 +144,6 @@ read_buttons:
     ld a, [rJOYPAD]
     cpl
     and $0F
-    swap a
     or b
     ld [buttons], a
     ld a, $30
