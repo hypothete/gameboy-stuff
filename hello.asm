@@ -11,6 +11,19 @@ SECTION "rom header", ROM0[$0104]
     NINTENDO_LOGO	; add nintendo logo. Required to run on real hardware
     ROM_HEADER	"0123456789ABCDE"
 
+SECTION "Main", ROM0[$0150]
+
+dma_copy:
+    ld a, $c1
+    ld [rDMA], a
+    ld a, 40
+.loop
+    dec a
+    jr nz, .loop
+    ret
+dma_copy_end:
+    nop
+
 main:
     di ; disable interrupts
     ld SP, $FFFF
@@ -20,53 +33,59 @@ main:
 
     halt ; wait a bit
     nop
-    halt
-    nop
 
-    ld hl, _OAMRAM
-    ld [hl], 20 ; y
-    ld hl, _OAMRAM + 1
-    ld [hl], 130 ; x
-    ld hl, _OAMRAM + 2
-    ld [hl], $19 ; sprite index
-    ld hl, _OAMRAM + 3
-    ld [hl], 0 ; set sprite flags to 0
-
-    ld a, [rLCDC]
+    ld a, [rLCDC] ; set LCD flags
     or LCDCF_OBJON
     or LCDCF_OBJ8
     ld [rLCDC], a
+    ; ld a, %11100100 ; set BG palette
+    ; ld [rBGP], a
+
+    ld bc, dma_copy
+    ld hl, $ff80
+    ; DMA routine is 13 bytes long
+    REPT dma_copy_end - dma_copy
+    ld a, [bc]
+    inc bc
+    ld [hli], a
+    ENDR
+
+clear_oam_buffer:
+    ld hl, oam_buffer
+    ld a, 0
+.clear_oam_buffer_loop
+    ld b, 0
+    ld [hl], b
+    inc hl
+    inc a
+    cp 160
+    jp nz, .clear_oam_buffer_loop
+
+.set_oam_zero ; makes an object using OAM 0
+    ld hl, oam_buffer
+    ; y-coord
+    ld a, 64
+    ld [hl+], a
+    ; x-coord
+    ld [hl+], a
+    ; tile index
+    ld a, $19
+    ld [hl+], a
+    ; attributes, including palette, which are all zero
+    ld a, %00000000
+    ld [hl+], a
 
 .loop
     halt ; halt until interrupt
     nop
-    ld hl, _OAMRAM ; y
+
+    ld hl, oam_buffer
     ld a, [hl]
     inc a
-    inc a
     ld [hl], a
-    ; ld hl, _OAMRAM + 1 ; x
-    ; dec [hl]
+
+    call $ff80
     jp .loop
 
-
-
-
-    ; ld a, %00110011 ; set BG palette
-    ; ld [rBGP], a
-
-; .loop_until_line_145
-;     ld a, [rLY]
-;     cp 145
-;     jr nz, .loop_until_line_145
-;     ld a, [rSCX]
-;     inc a
-;     ld [rSCX], a
-;     ld a, [rSCY]
-;     dec a
-;     dec a
-;     ld [rSCY], a
-;     ; ld a, [rBGP] ; get BG palette
-;     ; rrc a ; rotate right the bits
-;     ; ld [rBGP], a
-;     jr .loop_until_line_144
+SECTION "OAM buffer", WRAM0[$C100]
+oam_buffer: ds 4 * 40
