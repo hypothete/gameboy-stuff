@@ -3,6 +3,9 @@ INCLUDE "gbhw.inc"
 SECTION "Vblank", ROM0[$0040]
 	reti
 
+SECTION "Joypad", ROM0[$0060]
+	reti
+
 SECTION "start", ROM0[$0100]
     nop
     jp main
@@ -77,27 +80,75 @@ clear_oam_buffer:
     ld hl, oam_buffer
     ; y-coord
     ld a, 64
-    ld [hl+], a
+    ld [hli], a
     ; x-coord
-    ld [hl+], a
+    ld a, 64
+    ld [hli], a
     ; tile index
     ld a, $80
-    ld [hl+], a
+    ld [hli], a
     ; attributes, including palette, which are all zero
     ld a, %00000000
-    ld [hl+], a
+    ld [hli], a
 
 .loop
     halt ; halt until interrupt
     nop
 
+    ; move oam 0 down 1
+    call read_buttons
     ld hl, oam_buffer
-    ld a, [hl]
-    inc a
-    ld [hl], a
+    ld b, [hl] ; y
+    inc hl
+    ld c, [hl] ; x
+    ld a, [buttons]
+    bit 1, a
+    jr z, .skip_left
+    dec c
+.skip_left
+    bit 0, a
+    jr z, .skip_right
+    inc c
+.skip_right
+    bit 2, a
+    jr z, .skip_up
+    dec b
+.skip_up
+    bit 3, a
+    jr z, .skip_down
+    inc b
+.skip_down
+    ld [hl], c
+    dec hl
+    ld [hl], b
 
     call $ff80
     jp .loop
+
+read_buttons:
+    ld a, $20
+    ld [rJOYPAD], a ; tell it we want to read
+    ld a, [rJOYPAD] ; stall
+    ld a, [rJOYPAD]
+    cpl
+    and $0F
+    ld b, a ; b = start.select.b.a.x.x.x.x
+    ld a, $10
+    ld [rJOYPAD], a
+    ld a, [rJOYPAD] ; stall
+    ld a, [rJOYPAD]
+    ld a, [rJOYPAD]
+    ld a, [rJOYPAD]
+    ld a, [rJOYPAD]
+    ld a, [rJOYPAD]
+    cpl
+    and $0F
+    swap a
+    or b
+    ld [buttons], a
+    ld a, $30
+    ld [rJOYPAD], a
+    ret
 
 SECTION "Sprites", ROM0
 SPRITE0:
@@ -110,5 +161,6 @@ SPRITE0:
     dw `03022030
     dw `00000000
 
-SECTION "OAM buffer", WRAM0[$C100]
+SECTION "Buffers", WRAM0[$C100]
 oam_buffer: ds 4 * 40
+buttons: db
