@@ -12,7 +12,10 @@ SECTION "start", ROM0[$0100]
 
 SECTION "rom header", ROM0[$0104]
     NINTENDO_LOGO	; add nintendo logo. Required to run on real hardware
-    ROM_HEADER	"0123456789ABCDE"
+    ROM_HEADER	"DUNCS CROSSHAIR"
+
+INCLUDE	"ibmpc1.inc"	; used to generate ascii characters in our ROM
+INCLUDE "memory.asm"	; used to copy Monochrome ascii characters to VRAM
 
 SECTION "Main", ROM0[$0150]
 
@@ -37,24 +40,41 @@ main:
     halt ; wait a bit
     nop
 
-load_sprite:
-    ld hl, $8800
-    ld bc, SPRITE0
-    ld d, 16
-.lspr_loop
-    ld a, [bc]
-    ld [hli], a
-    inc bc
-    dec d
-    jr nz, .lspr_loop
+    call lcd_off
 
+load_chars:
+    ld de, $8800
+    ld hl, IBMCHARS_START
+    ld bc, IBMCHARS_END - IBMCHARS_START
+    call mem_CopyMono
 
+draw_to_bg:
+    ld hl, $9800
+    ld d, 0
+    ld e, 0
+.xloop
+    ld [hl], $81
+    inc hl
+    inc d
+    ld a, d
+    cp $14
+    jp nz, .xloop
+.yloop
+    inc e
+    ld d, 0
+    ld bc, $0C
+    add hl, bc
+    ld a, e
+    cp $12
+    jp nz, .xloop
+
+    call lcd_on
+
+draw_objects:
     ld a, [rLCDC] ; set LCD flags
     or LCDCF_OBJON
     or LCDCF_OBJ8
     ld [rLCDC], a
-    ; ld a, %11100100 ; set BG palette
-    ; ld [rBGP], a
 
     ld bc, dma_copy
     ld hl, $ff80
@@ -64,6 +84,10 @@ load_sprite:
     inc bc
     ld [hli], a
     ENDR
+
+set_object_palette:
+    ld hl, rOBP0
+    ld [hl], %11100100
 
 clear_oam_buffer:
     ld hl, oam_buffer
@@ -85,7 +109,7 @@ clear_oam_buffer:
     ld a, 64
     ld [hli], a
     ; tile index
-    ld a, $80
+    ld a, $82
     ld [hli], a
     ; attributes, including palette, which are all zero
     ld a, %00000000
@@ -95,15 +119,14 @@ clear_oam_buffer:
     halt ; halt until interrupt
     nop
 
-    ; move oam 0 down 1
     call read_buttons
     ld hl, oam_buffer
-    ld b, [hl] ; y
+    ld b, [hl] ; set b to oam 0 y
     inc hl
-    ld c, [hl] ; x
+    ld c, [hl] ; set c to oam 0 x
     ld a, [buttons]
     bit PADB_LEFT, a
-    jr z, .skip_left
+    jr z, .skip_left ; if not pressing left jump to .skip_left
     dec c
 .skip_left
     bit PADB_RIGHT, a
@@ -118,9 +141,22 @@ clear_oam_buffer:
     jr z, .skip_down
     inc b
 .skip_down
-    ld [hl], c
+    ld [hl], c ; set x and y
     dec hl
     ld [hl], b
+
+    ld hl, rBGP ; mess with the bg palette
+    ld [hl], %11011000
+    ld hl, rOBP0
+    ld [hl], %11100100
+    bit PADB_A, a
+    jr z, .skip_a
+    ld hl, rBGP
+    ld [hl], %00100111
+
+    ld hl, rOBP0 ; invert objects
+    ld [hl], %00011011
+.skip_a
 
     call $ff80 ; DMA transfer
     jp .loop
@@ -150,17 +186,30 @@ read_buttons:
     ld [rJOYPAD], a
     ret
 
-SECTION "Sprites", ROM0
-SPRITE0:
-    dw `00000000
-    dw `03022030
-    dw `00300300
-    dw `02033020
-    dw `02033020
-    dw `00300300
-    dw `03022030
-    dw `00000000
+lcd_off:
+    ld a, [rLCDC]
+    and LCDCF_ON
+    ret z
+.wait4vblank
+    ldh a, [rLY]
+    cp 145
+    jr nz, .wait4vblank
+.stopLCD
+    ld a, [rLCDC]
+    xor LCDCF_ON
+    ld [rLCDC], a
+    ret
 
+lcd_on:
+    ld a, [rLCDC]
+    or LCDCF_ON
+    ld [rLCDC], a
+    ret
+
+SECTION "Sprites", ROM0
+IBMCHARS_START:
+    chr_IBMPC1 1,8
+IBMCHARS_END:
 SECTION "Buffers", WRAM0[$C100]
 oam_buffer: ds 4 * 40
 buttons: db
