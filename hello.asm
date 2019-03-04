@@ -49,11 +49,19 @@ load_chars:
     call mem_CopyMono
 
 draw_to_bg:
-    ld hl, $9800
-    ld d, 0
-    ld e, 0
+    ld hl, $9800 ; start on bg x=0, y=0 
+    ld d, 0 ; x loop count
+    ld e, 0 ; y loop count
+    ld b, $81 ; tile number
 .xloop
-    ld [hl], $81
+    ld [hl], b ; draw tile
+    bit 0, b
+    jp z, .add_b
+    inc b
+    jp .after_b_toggle
+.add_b
+    dec b
+.after_b_toggle
     inc hl
     inc d
     ld a, d
@@ -61,10 +69,19 @@ draw_to_bg:
     jp nz, .xloop
 .yloop
     inc e
-    ld d, 0
+    ld d, b
     ld bc, $0C
-    add hl, bc
+    add hl, bc ; add to hl the rest of the way around to the next line
     ld a, e
+    bit 0, d
+    jp z, .add_d
+    inc d
+    jp .after_d_toggle
+.add_d
+    dec d
+.after_d_toggle
+    ld b, d
+    ld d, 0
     cp $12
     jp nz, .xloop
 
@@ -84,10 +101,6 @@ draw_objects:
     inc bc
     ld [hli], a
     ENDR
-
-set_object_palette:
-    ld hl, rOBP0
-    ld [hl], %11100100
 
 clear_oam_buffer:
     ld hl, oam_buffer
@@ -109,7 +122,7 @@ clear_oam_buffer:
     ld a, 64
     ld [hli], a
     ; tile index
-    ld a, $82
+    ld a, $8F
     ld [hli], a
     ; attributes, including palette, which are all zero
     ld a, %00000000
@@ -146,14 +159,13 @@ clear_oam_buffer:
     ld [hl], b
 
     ld hl, rBGP ; mess with the bg palette
-    ld [hl], %11011000
+    ld [hl], %01011010
     ld hl, rOBP0
     ld [hl], %11100100
     bit PADB_A, a
     jr z, .skip_a
     ld hl, rBGP
-    ld [hl], %00100111
-
+    ld [hl], %10100101
     ld hl, rOBP0 ; invert objects
     ld [hl], %00011011
 .skip_a
