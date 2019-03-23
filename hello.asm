@@ -43,7 +43,7 @@ main:
     call lcd_off
 
 load_chars:
-    ld de, $8800
+    ld de, $8000
     ld hl, IBMCHARS_START
     ld bc, IBMCHARS_END - IBMCHARS_START
     call mem_CopyMono
@@ -52,7 +52,7 @@ draw_to_bg:
     ld hl, $9800 ; start on bg x=0, y=0 
     ld d, 0 ; x loop count
     ld e, 0 ; y loop count
-    ld b, $81 ; tile number
+    ld b, $01 ; tile number
 .xloop
     ld [hl], b ; draw tile
     bit 0, b
@@ -84,6 +84,13 @@ draw_to_bg:
     ld d, 0
     cp $12
     jp nz, .xloop
+
+draw_text_msg:
+    ld hl, TXTMSG_START
+    ld de, $99E1
+    ld bc, 12
+    call mem_CopyVRAM
+
 
     call lcd_on
 
@@ -122,7 +129,7 @@ clear_oam_buffer:
     ld a, 64
     ld [hli], a
     ; tile index
-    ld a, $8F
+    ld a, $0F
     ld [hli], a
     ; attributes, including palette, which are all zero
     ld a, %00000000
@@ -222,6 +229,9 @@ SECTION "Sprites", ROM0
 IBMCHARS_START:
     chr_IBMPC1 1,8
 IBMCHARS_END:
+TXTMSG_START:
+    db "Hello World!"
+
 SECTION "Buffers", WRAM0[$C100]
 oam_buffer: ds 4 * 40
 buttons: db
